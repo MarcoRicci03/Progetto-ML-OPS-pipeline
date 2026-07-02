@@ -12,7 +12,7 @@ from clearml import Task, Logger
 # 1. INIZIALIZZAZIONE CLEARML
 task = Task.init(
     project_name='Progetto_MLOps_Esame', 
-    task_name='Pipeline_Marco_RF_Baseline_V2'
+    task_name='Pipeline_Marco_RF_Baseline'
 )
 
 params = {

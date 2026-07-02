@@ -1,6 +1,4 @@
-# ==========================================
-# PIPELINE PAOLO: Advanced Modeling (XGBoost)
-# ==========================================
+import argparse
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from xgboost import XGBClassifier
@@ -9,16 +7,27 @@ import matplotlib.pyplot as plt
 import joblib
 from sklearn.metrics import accuracy_score, roc_auc_score, ConfusionMatrixDisplay, RocCurveDisplay
 
-# ---------------------------------------------------------
-# 1. INIZIALIZZAZIONE CLEARML (Stesso progetto, Task differente)
-# ---------------------------------------------------------
+parser = argparse.ArgumentParser()
+parser.add_argument('--source_task_id', required=True)
+args = parser.parse_args()
+
+PROJECT_NAME = 'Progetto_MLOps_Esame'
+
+source_task = Task.get_task(task_id=args.source_task_id)
+if source_task is None:
+    raise RuntimeError('Task sorgente non trovato su ClearML')
+
+if 'taxi_data_cleaned' not in source_task.artifacts:
+    raise RuntimeError("Artifact 'taxi_data_cleaned' non trovato nel task sorgente")
+
+df = source_task.artifacts['taxi_data_cleaned'].get()
+print(f"Dataset ottenuto dal task {source_task.id}")
+
 task = Task.init(
-    project_name='Progetto_MLOps_Esame', 
-    task_name='Pipeline_Paolo_XGBoost_V2'
+    project_name=PROJECT_NAME,
+    task_name='Pipeline_Paolo_XGBoost'
 )
 
-# Definiamo i parametri di Paolo. 
-# Manteniamo test_size e random_state coerenti con Marco per un confronto equo.
 params = {
     'n_estimators': 150,
     'learning_rate': 0.1,
@@ -27,16 +36,6 @@ params = {
     'random_state': 42
 }
 task.connect(params)
-
-# ---------------------------------------------------------
-# 2. RECUPERO ASSET DAL FEATURE STORE DI CLEARML
-# ---------------------------------------------------------
-print("Recupero dell'artifact (Dataset Pulito) dal Task di Marco...")
-# Usiamo l'ID del task di Marco per prelevare il DataFrame gia estratto e pulito
-marco_task_id = "b264fce117e34ff386761f748c48bc9c"
-df = Task.get_task(task_id=marco_task_id).artifacts['taxi_data_cleaned'].get()
-
-print(f"Dataset ottenuto con successo! Righe totali: {len(df)}")
 
 # ---------------------------------------------------------
 # 3. SPLIT DATI (Coerente con le specifiche di Marco)
