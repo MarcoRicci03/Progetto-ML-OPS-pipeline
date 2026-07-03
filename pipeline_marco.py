@@ -1,4 +1,5 @@
 import pandas as pd
+import pyarrow
 import matplotlib.pyplot as plt
 import joblib
 from sklearn.model_selection import train_test_split

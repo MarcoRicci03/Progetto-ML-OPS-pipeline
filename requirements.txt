@@ -1,9 +1,8 @@
 pandas
+pyarrow
 scikit-learn
 xgboost
 matplotlib
 clearml
 optuna
 joblib
-pyarrow
-fastparquet
