@@ -62,7 +62,7 @@ optimizer = HyperParameterOptimizer(
     max_number_of_concurrent_tasks=2,
     optimizer_class=OptimizerOptuna,
     execution_queue='default',
-    total_max_jobs=4,
+    total_max_jobs=1,
     max_iteration_per_job=30
 )
 
