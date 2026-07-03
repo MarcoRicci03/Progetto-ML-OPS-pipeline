@@ -5,3 +5,5 @@ matplotlib
 clearml
 optuna
 joblib
+pyarrow
+fastparquet
