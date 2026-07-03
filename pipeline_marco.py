@@ -1,13 +1,10 @@
-# ==========================================
-# PIPELINE MARCO: Baseline & Data Prep
-# ==========================================
 import pandas as pd
 import matplotlib.pyplot as plt
 import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, roc_auc_score, ConfusionMatrixDisplay, RocCurveDisplay # NUOVI IMPORT
-from clearml import Task, Logger
+from sklearn.metrics import accuracy_score, roc_auc_score, ConfusionMatrixDisplay, RocCurveDisplay
+from clearml import Task, Logger, OutputModel
 
 # 1. INIZIALIZZAZIONE CLEARML
 task = Task.init(
@@ -19,14 +16,14 @@ params = {
     'n_estimators': 50,
     'max_depth': 5,
     'test_size': 0.2,
-    'random_state': 42
+    'random_state': 42,
+    'data_url': "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2024-01.parquet"
 }
 task.connect(params)
 
 # 2. CARICAMENTO DATI
 print("Scaricamento dei dati dei Taxi di NY...")
-url = "https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2024-01.parquet"
-df_raw = pd.read_parquet(url)
+df_raw = pd.read_parquet(params['data_url'])
 
 # 3. PULIZIA E FILTRI INIZIALI
 print("Pulizia e filtraggio dei dati...")
@@ -65,6 +62,9 @@ mediana = tip_pct.median()
 
 df_final['target'] = (tip_pct > mediana).astype(int)
 
+print("Ordinamento temporale dei dati per evitare Data Leakage...")
+df_final = df_final.sort_values('tpep_pickup_datetime')
+
 features_model = [
     'duration_min', 'fare_amount', 'trip_distance', 'tolls_amount', 
     'Airport_fee', 'is_weekend', 'is_rush_hour', 'is_airport'
@@ -82,7 +82,7 @@ X = df_to_share.drop(columns=['target'])
 y = df_to_share['target']
 
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=params['test_size'], random_state=params['random_state']
+    X, y, test_size=params['test_size'], shuffle=False
 )
 
 # 8. ADDESTRAMENTO MODELLO BASELINE
@@ -148,6 +148,7 @@ plt.close(fig3)
 print("Salvataggio del modello nel Model Registry di ClearML...")
 joblib.dump(rf_base, 'marco_baseline_rf.pkl')
 
-task.upload_artifact(name='Marco_Model_RF_pkl', artifact_object='marco_baseline_rf.pkl')
+output_model = OutputModel(task=task, framework="Scikit-Learn")
+output_model.update_weights(weights_filename='marco_baseline_rf.pkl', auto_delete_file=False)
 
 print("\nPipeline completata con successo!")

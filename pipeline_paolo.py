@@ -2,7 +2,7 @@ import argparse
 import pandas as pd
 from sklearn.model_selection import train_test_split
 from xgboost import XGBClassifier
-from clearml import Task, Logger
+from clearml import Task, Logger, OutputModel
 import matplotlib.pyplot as plt
 import joblib
 from sklearn.metrics import accuracy_score, roc_auc_score, ConfusionMatrixDisplay, RocCurveDisplay
@@ -33,6 +33,8 @@ params = {
     'learning_rate': 0.1,
     'max_depth': 5,
     'test_size': 0.2,
+    'val_size': 0.1,
+    'early_stopping_rounds': 15,
     'random_state': 42
 }
 task.connect(params)
@@ -44,8 +46,12 @@ task.connect(params)
 X = df.drop(columns=['target'])
 y = df['target']
 
-X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=params['test_size'], random_state=params['random_state']
+X_train_full, X_test, y_train_full, y_test = train_test_split(
+    X, y, test_size=params['test_size'], shuffle=False
+)
+
+X_train, X_val, y_train, y_val = train_test_split(
+    X_train_full, y_train_full, test_size=params['val_size'], shuffle=False
 )
 
 # ---------------------------------------------------------
@@ -57,13 +63,20 @@ xgb_model = XGBClassifier(
     learning_rate=params['learning_rate'],
     max_depth=params['max_depth'], 
     random_state=params['random_state'],
-    eval_metric='logloss' # Evita i warning di XGBoost in console
+    eval_metric='auc',
+    early_stopping_rounds=params['early_stopping_rounds']
 )
-xgb_model.fit(X_train, y_train)
+xgb_model.fit(
+    X_train, 
+    y_train,
+    eval_set=[(X_val, y_val)],
+    verbose=False # Evitiamo di inondare la console con troppi log
+)
 
-# ---------------------------------------------------------
+best_iteration = xgb_model.best_iteration
+print(f"L'addestramento si è fermato all'albero n. {best_iteration} (Early Stopping)")
+
 # 5. VALUTAZIONE E LOGGING METRICHE (Nomi identici a Marco)
-# ---------------------------------------------------------
 y_pred = xgb_model.predict(X_test)
 y_proba = xgb_model.predict_proba(X_test)[:, 1]
 
@@ -76,11 +89,9 @@ print(f"ROC-AUC:  {auc:.4f}")
 
 Logger.current_logger().report_scalar(title='Metrics', series='Accuracy', value=acc, iteration=0)
 Logger.current_logger().report_scalar(title='Metrics', series='ROC_AUC', value=auc, iteration=0)
+Logger.current_logger().report_scalar(title='Metrics', series='Best_Iteration', value=best_iteration, iteration=0)
 
-
-# =========================================================
 # 6. PLOTS, EXPLAINABILITY & MODEL REGISTRY
-# =========================================================
 print("\nGenerazione grafici di valutazione per XGBoost...")
 
 # --- Grafico 1: Matrice di Confusione ---
@@ -121,8 +132,11 @@ plt.close(fig3)
 # --- Salvataggio Modello ---
 print("Salvataggio del modello nel Model Registry...")
 joblib.dump(xgb_model, 'paolo_xgboost_model.pkl')
-task.upload_artifact(name='Paolo_Model_XGBoost_pkl', artifact_object='paolo_xgboost_model.pkl')
-
+output_model = OutputModel(task=task, framework="XGBoost")
+output_model.update_weights(
+    weights_filename='paolo_xgboost_model.pkl',
+    auto_delete_file=False
+)
 print("\nSincronizzazione con il server in corso (10 secondi per garantire l'HPO)...")
 task.flush(wait_for_uploads=True)
 

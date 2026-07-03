@@ -1,7 +1,4 @@
 # -*- coding: utf-8 -*-
-# ==========================================
-# PIPELINE OPTIMIZER: Hyperparameter Tuning (HPO)
-# ==========================================
 import argparse
 from clearml import Task
 from clearml.automation import (
@@ -59,7 +56,7 @@ optimizer = HyperParameterOptimizer(
     ],
 
     objective_metric_title='Metrics',
-    objective_metric_series='Accuracy',
+    objective_metric_series='ROC_AUC',
     objective_metric_sign='max',
 
     max_number_of_concurrent_tasks=2,
