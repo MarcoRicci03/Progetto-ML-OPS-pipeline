@@ -111,7 +111,7 @@ print(f"ROC-AUC:  {auc:.4f}")
 Logger.current_logger().report_single_value(name='Accuracy_Test', value=acc)
 Logger.current_logger().report_single_value(name='ROC_AUC_Test', value=auc)
 
-# 10. NUOVA SEZIONE: PLOTS & MODEL REGISTRY
+# 10. PLOTS & MODEL REGISTRY
 print("\nGenerazione grafici di valutazione...")
 
 # Grafico 1: Matrice di Confusione
