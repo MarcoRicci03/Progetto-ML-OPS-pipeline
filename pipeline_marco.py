@@ -54,6 +54,7 @@ evening_rush = (hour >= 16) & (hour <= 19)
 df['is_rush_hour'] = ((morning_rush | evening_rush) & is_weekday).astype(int)
 df['is_airport'] = df['RatecodeID'].isin([2, 3]).astype(int)
 
+# Filtriamo viaggi anomali
 df = df[(df['duration_min'] > 0) & (df['duration_min'] < 720)].copy()
 
 # 5. CREAZIONE DEL TARGET (Percentuale Mancia > Mediana)
@@ -83,7 +84,7 @@ X = df_to_share.drop(columns=['target'])
 y = df_to_share['target']
 
 X_train, X_test, y_train, y_test = train_test_split(
-    X, y, test_size=params['test_size'], shuffle=False
+    X, y, test_size=params['test_size'], shuffle=False # shuffle=False per rispettare l'ordine temporale
 )
 
 # 8. ADDESTRAMENTO MODELLO BASELINE
@@ -131,7 +132,7 @@ Logger.current_logger().report_matplotlib_figure(
 )
 plt.close(fig2)
 
-# --- Grafico 3: Feature Importance ---
+# Grafico 3: Feature Importance
 print("Generazione Feature Importance...")
 importances = rf_base.feature_importances_
 feature_names = X_train.columns

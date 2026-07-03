@@ -5,13 +5,10 @@ import joblib
 import pandas as pd
 from contextlib import asynccontextmanager
 
-# Dizionario globale per conservare il modello
 ml_models = {}
 
-# 1. Gestione moderna dell'avvio (Lifespan)
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # --- FASE DI STARTUP ---
     print("Connessione a ClearML in corso...")
     try:
         models = Model.query_models(project_name='Progetto_MLOps_Esame')
@@ -31,14 +28,12 @@ async def lifespan(app: FastAPI):
     except Exception as e:
         print(f"Errore durante il caricamento del modello: {e}")
     
-    yield 
+    yield
     
-    # --- FASE DI SHUTDOWN ---
     ml_models.clear()
     print("Risorse liberate. Server spento.")
 
 
-# 2. Inizializzazione API con il lifespan
 app = FastAPI(
     title="NY Taxi Tip Predictor",
     description="API MLOps per prevedere se una corsa in taxi riceverà una mancia alta",
@@ -56,7 +51,6 @@ class TripData(BaseModel):
     is_rush_hour: int
     is_airport: int
 
-# 3. Endpoint di previsione
 @app.post("/predict")
 def predict_tip(trip: TripData):
     model = ml_models.get("xgboost")
@@ -64,7 +58,7 @@ def predict_tip(trip: TripData):
     if model is None:
         raise HTTPException(status_code=500, detail="Modello non inizializzato.")
     
-    input_data = pd.DataFrame([trip.model_dump()]) # Sostituito .dict() con il più moderno .model_dump()
+    input_data = pd.DataFrame([trip.model_dump()])
     
     prediction = model.predict(input_data)[0]
     probability = model.predict_proba(input_data)[0][1]
