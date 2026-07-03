@@ -1,4 +1,3 @@
-
 from clearml import PipelineController
 
 PROJECT_NAME = 'Progetto_MLOps_Esame'
@@ -27,7 +26,12 @@ def main():
     pipe.add_step(
         name='step_marco',
         base_task_project=PROJECT_NAME,
-        base_task_name=MARCO_TASK_NAME
+        base_task_name=MARCO_TASK_NAME,
+        task_overrides={
+            'script.repository': 'https://github.com/MarcoRicci03/Progetto-ML-OPS-pipeline.git',
+            'script.branch': 'main',
+            'script.version_num': ''
+        }
     )
 
     # Step 2: Pipeline Paolo (XGBoost)
@@ -38,8 +42,12 @@ def main():
         base_task_project=PROJECT_NAME,
         base_task_name=PAOLO_TASK_NAME,
         parameter_override={
-            # Passiamo magicamente l'ID generato dallo step_marco al parametro di Paolo
             'Args/source_task_id': '${step_marco.id}'
+        },
+        task_overrides={
+            'script.repository': 'https://github.com/MarcoRicci03/Progetto-ML-OPS-pipeline.git',
+            'script.branch': 'main',
+            'script.version_num': ''
         }
     )
 
@@ -52,6 +60,11 @@ def main():
         parameter_override={
             # Passiamo l'ID generato dallo step_paolo al parametro dell'Optimizer
             'Args/base_task_id': '${step_paolo.id}'
+        },
+        task_overrides={
+            'script.repository': 'https://github.com/MarcoRicci03/Progetto-ML-OPS-pipeline.git',
+            'script.branch': 'main',
+            'script.version_num': ''
         }
     )
 
@@ -62,7 +75,7 @@ def main():
     
     # run_pipeline_steps_locally=True esegue tutto sul tuo computer
     # Se imposti a False, ClearML invierà i task alle code in attesa degli agent remoti!
-    pipe.start_locally(run_pipeline_steps_locally=True)
+    pipe.start_locally(run_pipeline_steps_locally=False)
     
     print("\nWorkflow completato con successo! Controlla la dashboard UI di ClearML per visualizzare il grafo.")
 
