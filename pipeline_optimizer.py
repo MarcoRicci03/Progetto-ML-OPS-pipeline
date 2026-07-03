@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import argparse
 from clearml import Task
 from clearml.automation import (
@@ -26,7 +27,6 @@ task = Task.init(
     task_name=TASK_NAME,
     task_type=Task.TaskTypes.optimizer
 )
-task.add_tags(['hpo', 'optuna', 'xgboost'])
 
 # 2. VALIDAZIONE DEL TASK TEMPLATE
 paolo_task = Task.get_task(task_id=args.base_task_id)
