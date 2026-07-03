@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import argparse
 from clearml import Task
 from clearml.automation import (
@@ -21,9 +20,7 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-# ---------------------------------------------------------
 # 1. INIZIALIZZAZIONE TASK DI OTTIMIZZAZIONE
-# ---------------------------------------------------------
 task = Task.init(
     project_name=PROJECT_NAME,
     task_name=TASK_NAME,
@@ -31,10 +28,7 @@ task = Task.init(
 )
 task.add_tags(['hpo', 'optuna', 'xgboost'])
 
-
-# ---------------------------------------------------------
 # 2. VALIDAZIONE DEL TASK TEMPLATE
-# ---------------------------------------------------------
 paolo_task = Task.get_task(task_id=args.base_task_id)
 
 if paolo_task is None:
@@ -42,10 +36,7 @@ if paolo_task is None:
 
 print(f"Inizializzazione Ottimizzatore basato sul Task di Paolo: {paolo_task.id}")
 
-
-# ---------------------------------------------------------
 # 3. CONFIGURAZIONE DELL'OTTIMIZZATORE
-# ---------------------------------------------------------
 optimizer = HyperParameterOptimizer(
     base_task_id=paolo_task.id,
 
@@ -66,20 +57,14 @@ optimizer = HyperParameterOptimizer(
     max_iteration_per_job=30
 )
 
-
-# ---------------------------------------------------------
 # 4. ESECUZIONE
-# ---------------------------------------------------------
 print("Avvio della ricerca automatica degli iperparametri (HPO)...")
 optimizer.set_report_period(1)
 optimizer.start_locally(job_complete_callback=None)
 
 optimizer.wait()
 
-
-# ---------------------------------------------------------
 # 5. RISULTATI
-# ---------------------------------------------------------
 print("\nOttimizzazione completata!")
 
 top_experiments = optimizer.get_top_experiments(top_k=1)
@@ -89,9 +74,6 @@ if top_experiments:
 else:
     print("Nessun esperimento completato correttamente.")
 
-
-# ---------------------------------------------------------
 # 6. CHIUSURA
-# ---------------------------------------------------------
 optimizer.stop()
 task.close()

@@ -39,10 +39,7 @@ params = {
 }
 task.connect(params)
 
-# ---------------------------------------------------------
-# 3. SPLIT DATI (Coerente con le specifiche di Marco)
-# ---------------------------------------------------------
-# Il target si chiama 'target', esattamente come impostato da Marco
+# 3. SPLIT DATI
 X = df.drop(columns=['target'])
 y = df['target']
 
@@ -54,9 +51,7 @@ X_train, X_val, y_train, y_val = train_test_split(
     X_train_full, y_train_full, test_size=params['val_size'], shuffle=False
 )
 
-# ---------------------------------------------------------
-# 4. ADDESTRAMENTO MODELLO AVANZATO (XGBoost)
-# ---------------------------------------------------------
+# 4. ADDESTRAMENTO MODELLO AVANZATO
 print(f"Addestramento XGBoost Classifier (Estimators: {params['n_estimators']})...")
 xgb_model = XGBClassifier(
     n_estimators=params['n_estimators'], 
@@ -76,7 +71,7 @@ xgb_model.fit(
 best_iteration = xgb_model.best_iteration
 print(f"L'addestramento si è fermato all'albero n. {best_iteration} (Early Stopping)")
 
-# 5. VALUTAZIONE E LOGGING METRICHE (Nomi identici a Marco)
+# 5. VALUTAZIONE E LOGGING METRICHE
 y_pred = xgb_model.predict(X_test)
 y_proba = xgb_model.predict_proba(X_test)[:, 1]
 
@@ -94,7 +89,7 @@ Logger.current_logger().report_scalar(title='Metrics', series='Best_Iteration', 
 # 6. PLOTS, EXPLAINABILITY & MODEL REGISTRY
 print("\nGenerazione grafici di valutazione per XGBoost...")
 
-# --- Grafico 1: Matrice di Confusione ---
+# --- Matrice di Confusione ---
 fig, ax = plt.subplots(figsize=(6, 6))
 ConfusionMatrixDisplay.from_estimator(xgb_model, X_test, y_test, ax=ax, cmap='Oranges') # Uso l'arancione per distinguerlo da Marco
 plt.title('Matrice di Confusione - Paolo XGBoost')
@@ -103,7 +98,7 @@ Logger.current_logger().report_matplotlib_figure(
 )
 plt.close(fig)
 
-# --- Grafico 2: Curva ROC ---
+# --- Curva ROC ---
 fig2, ax2 = plt.subplots(figsize=(6, 6))
 RocCurveDisplay.from_estimator(xgb_model, X_test, y_test, ax=ax2)
 plt.title('Curva ROC - Paolo XGBoost')
@@ -112,7 +107,7 @@ Logger.current_logger().report_matplotlib_figure(
 )
 plt.close(fig2)
 
-# --- Grafico 3: Feature Importance (XGBoost) ---
+# --- Feature Importance (XGBoost) ---
 print("Generazione Feature Importance...")
 importances = xgb_model.feature_importances_
 feature_names = X_train.columns
