@@ -22,6 +22,21 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
+
+      - name: Installa ClearML Agent
+        run: pip install clearml-agent
+
+      - name: Avvia Agent in background
+        env:
+          CLEARML_WEB_HOST: "https://app.clear.ml"
+          CLEARML_API_HOST: "https://api.clear.ml"
+          CLEARML_FILES_HOST: "https://files.clear.ml"
+          CLEARML_API_ACCESS_KEY: ${{ secrets.CLEARML_API_ACCESS_KEY }}
+          CLEARML_API_SECRET_KEY: ${{ secrets.CLEARML_API_SECRET_KEY }}
+        run: |
+          nohup clearml-agent daemon --queue default --foreground > agent.log 2>&1 &
+          sleep 10
+
       - name: Lancia l'Orchestratore
         env:
           CLEARML_WEB_HOST: "https://app.clear.ml"
