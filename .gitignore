@@ -1,3 +1,5 @@
 *.pkl
 /ML_OPS_env/
 spiegazione_progetto_clearml.md
+
+/__pycache__/
