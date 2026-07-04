@@ -11,7 +11,6 @@ from xgboost import XGBClassifier
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--source_task_id', required=True)
-parser.add_argument('--baseline_model_id', required=True) # NUOVO PARAMETRO
 args = parser.parse_args()
 
 PROJECT_NAME = 'Progetto_MLOps_Esame'
@@ -197,6 +196,4 @@ if promote_to_production:
 
 output_model.tags = nuovi_tags
 
-print("\nSincronizzazione completata.")
-task.close()
 print("\nPipeline di Paolo completata con successo!")
