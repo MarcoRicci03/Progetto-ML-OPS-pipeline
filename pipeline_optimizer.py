@@ -50,10 +50,10 @@ optimizer = HyperParameterOptimizer(
     objective_metric_series='ROC_AUC',
     objective_metric_sign='max',
 
-    max_number_of_concurrent_tasks=20,
+    max_number_of_concurrent_tasks=2,
     optimizer_class=OptimizerOptuna,
     execution_queue='default',
-    total_max_jobs=2,
+    total_max_jobs=20,
     max_iteration_per_job=30
 )
 
