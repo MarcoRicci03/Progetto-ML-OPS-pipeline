@@ -172,12 +172,15 @@ joblib.dump(rf_base, 'marco_baseline_rf.pkl')
 
 output_model = OutputModel(task=task, framework="Scikit-Learn")
 output_model.update_weights(weights_filename='marco_baseline_rf.pkl', auto_delete_file=False)
-output_model.add_tags(["baseline"])  # type: ignore[attr-defined]
+
+tags_correnti = ["baseline"]
 
 # Se non esiste un production model, questa baseline diventa il riferimento iniziale.
 prod_models = Model.query_models(project_name='Progetto_MLOps_Esame', tags=["production"])
 if not prod_models:
     print("Nessun modello in produzione trovato nel progetto. Imposto la baseline come 'production' iniziale.")
-    output_model.add_tags(["production"])  # type: ignore[attr-defined]
+    tags_correnti.append("production")
+
+output_model.tags = tags_correnti
 
 print("\nPipeline completata con successo!")

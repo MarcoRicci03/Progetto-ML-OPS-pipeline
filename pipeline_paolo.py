@@ -152,8 +152,8 @@ joblib.dump(xgb_model, 'paolo_xgboost_model.pkl')
 output_model = OutputModel(task=task, framework="XGBoost")
 output_model.update_weights(weights_filename='paolo_xgboost_model.pkl', auto_delete_file=False)
 
-print("\n--- Fase di Model Evaluation (Gatekeeper) ---")
-# Confronto il nuovo modello solo contro quello già marcato production.
+print("\n--- Fase di Model Evaluation ---")
+
 prod_models = Model.query_models(project_name=PROJECT_NAME, tags=["production"])
 
 promote_to_production = True
@@ -163,19 +163,27 @@ if prod_models:
     print(f"Modello in produzione trovato (ID: {current_prod_model.id}). Inizio il confronto...")
     
     try:
+        # 1. Scarichiamo fisicamente il modello vecchio 
         prod_model_path = current_prod_model.get_local_copy()
         vecchio_modello = joblib.load(prod_model_path)
         
+        # 2. Testiamo il vecchio modello sul NOSTRO X_test per un confronto alla pari
         y_proba_vecchio = vecchio_modello.predict_proba(X_test)[:, 1]
         auc_vecchio = roc_auc_score(y_test, y_proba_vecchio)
         
         print(f"-> ROC-AUC Modello in Produzione (Vecchio): {auc_vecchio:.4f}")
         print(f"-> ROC-AUC Modello XGBoost (Nuovo):         {auc:.4f}")
         
+        # 3. Valutazione effettiva
         if auc > auc_vecchio:
             print("L'XGBoost è migliore! Rimuovo il tag dal vecchio e promuovo il nuovo.")
-            current_prod_model.remove_tags(["production"])
-            current_prod_model.add_tags(["archiviata"]) 
+            
+            # Gestione dei tag sul vecchio modello tramite la proprietà
+            vecchi_tags = current_prod_model.tags
+            if "production" in vecchi_tags:
+                vecchi_tags.remove("production")
+            vecchi_tags.append("archiviata")
+            current_prod_model.tags = vecchi_tags
         else:
             print("L'XGBoost NON migliora le prestazioni. Nessuna promozione in produzione.")
             promote_to_production = False
@@ -186,14 +194,18 @@ if prod_models:
 else:
     print("Nessun modello attualmente in produzione. Promozione automatica consentita.")
 
+# Assegnazione dei tag al nuovo modello
+nuovi_tags = ["candidato"]
 if promote_to_production:
-    output_model.add_tags(["production"])
+    nuovi_tags.append("production")
     print("Nuovo modello taggato con successo come 'production'.")
 
-# Fase 8: flush finale e chiusura task.
+output_model.tags = nuovi_tags
+
 print("\nSincronizzazione con il server in corso (10 secondi per garantire l'HPO)...")
-# Flush prima della chiusura per non perdere upload e metadati del task.
 task.flush(wait_for_uploads=True)
+
+import time
 time.sleep(10)
 task.close()
 
