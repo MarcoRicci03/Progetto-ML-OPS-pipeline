@@ -1,0 +1,47 @@
+Corsa standard in città
+{
+  "duration_min": 12.5,
+  "fare_amount": 14.50,
+  "trip_distance": 2.8,
+  "tolls_amount": 0.0,
+  "Airport_fee": 0.0,
+  "is_weekend": 0,
+  "is_rush_hour": 0,
+  "is_airport": 0
+}
+
+Corsa per l'aereoporto
+{
+  "duration_min": 45.0,
+  "fare_amount": 65.00,
+  "trip_distance": 18.2,
+  "tolls_amount": 6.55,
+  "Airport_fee": 1.25,
+  "is_weekend": 1,
+  "is_rush_hour": 0,
+  "is_airport": 1
+}
+
+Corsa nell'ora di punta
+{
+  "duration_min": 38.0,
+  "fare_amount": 28.00,
+  "trip_distance": 3.5,
+  "tolls_amount": 0.0,
+  "Airport_fee": 0.0,
+  "is_weekend": 0,
+  "is_rush_hour": 1,
+  "is_airport": 0
+}
+
+Caso anomalo o limite
+{
+  "duration_min": 120.0,
+  "fare_amount": 150.00,
+  "trip_distance": 45.0,
+  "tolls_amount": 20.00,
+  "Airport_fee": 0.0,
+  "is_weekend": 1,
+  "is_rush_hour": 1,
+  "is_airport": 0
+}

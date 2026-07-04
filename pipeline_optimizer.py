@@ -50,7 +50,7 @@ optimizer = HyperParameterOptimizer(
     objective_metric_series='ROC_AUC',
     objective_metric_sign='max',
 
-    max_number_of_concurrent_tasks=2,
+    max_number_of_concurrent_tasks=10,
     optimizer_class=OptimizerOptuna,
     execution_queue='default',
     total_max_jobs=10,
@@ -72,7 +72,7 @@ if top_experiments:
     best_task = top_experiments[0]
     print(f"L'esperimento migliore è stato il Task ID: {best_task.id}")
     print(f"Ricerca del modello salvato dall'esperimento migliore")
-    best_task_models = Models.query_models(task_id=best_task.id)
+    best_task_models = best_task.models['output']
     if best_task_models:
         best_model = best_task_models[0]
         print(f"Modello trovato: ID={best_model.id}, Nome={best_model.name}")

@@ -1,10 +1,9 @@
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
-from clearml import Model
+from clearml import Model, Task
 import joblib
 import pandas as pd
 from contextlib import asynccontextmanager
-import requests
 
 ml_models = {}
 
@@ -12,40 +11,21 @@ ml_models = {}
 async def lifespan(app: FastAPI):
     print("Connessione a ClearML in corso...")
     try:
-        models = Model.query_models(project_name='Progetto_MLOps_Esame')
-
+        print("Ricerca del task HPO...")
+        hpo_task = Task.get_task(
+            project_name='Progetto_MLOps_Esame', 
+            task_name='Pipeline_HPO_XGBoost_Tuning'
+        )
         
-        if not models:
-            raise RuntimeError("Nessun modello trovato nel progetto ClearML!")
-
-        # prendi un file json online
-        url = "https://files.clear.ml/Progetto_MLOps_Esame/Pipeline_HPO_XGBoost_Tuning.9be35e13622748be9df517a226433747/artifacts/summary/summary.json"
-        response = requests.get(url)
-        response.raise_for_status() 
-        data = response.json()
-
-        print(data)
-
-
-
-
-        #stampa tutti i modelli trovati
-        for model in models:
-            print(f"Modello trovato: ID={model.id}, Nome={model.name}")
+        if 'best_xgboost_model' not in hpo_task.artifacts:
+            raise RuntimeError("Artifact 'best_xgboost_model' non trovato nel task HPO!")
+            
+        print("Artifact trovato! Scaricamento del modello migliore in corso...")
         
-        #stampo tutti gli attributi del primo modello trovato
-        print(f"Attributi del primo modello trovato: {models[0]}")
-
-
-        best_model = models[0]
+        model_path = hpo_task.artifacts['best_xgboost_model'].get_local_copy()
         
-        print(f"Scaricamento Modello ID: {best_model.id}...")
-        
-        # Scarica e carica in memoria il modello
-        model_path = best_model.get_local_copy()
         ml_models["xgboost"] = joblib.load(model_path)
         print("Modello caricato in memoria con successo e pronto per le previsioni!")
-        
     except Exception as e:
         print(f"Errore durante il caricamento del modello: {e}")
     
