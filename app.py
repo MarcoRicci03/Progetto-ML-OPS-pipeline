@@ -4,6 +4,7 @@ from clearml import Model
 import joblib
 import pandas as pd
 from contextlib import asynccontextmanager
+import requests
 
 ml_models = {}
 
@@ -12,10 +13,30 @@ async def lifespan(app: FastAPI):
     print("Connessione a ClearML in corso...")
     try:
         models = Model.query_models(project_name='Progetto_MLOps_Esame')
+
         
         if not models:
             raise RuntimeError("Nessun modello trovato nel progetto ClearML!")
-            
+
+        # prendi un file json online
+        url = "https://files.clear.ml/Progetto_MLOps_Esame/Pipeline_HPO_XGBoost_Tuning.9be35e13622748be9df517a226433747/artifacts/summary/summary.json"
+        response = requests.get(url)
+        response.raise_for_status() 
+        data = response.json()
+
+        print(data)
+
+
+
+
+        #stampa tutti i modelli trovati
+        for model in models:
+            print(f"Modello trovato: ID={model.id}, Nome={model.name}")
+        
+        #stampo tutti gli attributi del primo modello trovato
+        print(f"Attributi del primo modello trovato: {models[0]}")
+
+
         best_model = models[0]
         
         print(f"Scaricamento Modello ID: {best_model.id}...")

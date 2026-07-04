@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import argparse
-from clearml import Task
+from clearml import Task, Models
 from clearml.automation import (
     HyperParameterOptimizer,
     UniformIntegerParameterRange,
@@ -69,7 +69,21 @@ print("\nOttimizzazione completata!")
 
 top_experiments = optimizer.get_top_experiments(top_k=1)
 if top_experiments:
-    print(f"L'esperimento migliore è stato il Task ID: {top_experiments[0].id}")
+    best_task = top_experiments[0]
+    print(f"L'esperimento migliore è stato il Task ID: {best_task.id}")
+    print(f"Ricerca del modello salvato dall'esperimento migliore")
+    best_task_models = Models.query_models(task_id=best_task.id)
+    if best_task_models:
+        best_model = best_task_models[0]
+        print(f"Modello trovato: ID={best_model.id}, Nome={best_model.name}")
+        print(f"Scaricamento Modello ID: {best_model.id}...")
+        local_model_path = best_model.get_local_copy()
+        if local_model_path:
+            print(f"Modello salvato localmente in: {local_model_path}")
+            task.upload_artifact(name='best_xgboost_model', artifact_object=local_model_path)
+            print("Artifact 'best_xgboost_model' caricato con successo!")
+    else:
+        print(f"Nessun modello trovato nel task figlio {best_task.id}.")
     print("Controlla la dashboard di ClearML nel tab 'Plots' di questo task per vedere il grafico a dispersione!")
 else:
     print("Nessun esperimento completato correttamente.")
