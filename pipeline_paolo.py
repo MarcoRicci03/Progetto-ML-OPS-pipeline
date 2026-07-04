@@ -1,7 +1,13 @@
 import argparse
+import time
+
+import joblib
+import matplotlib.pyplot as plt
 import pandas as pd
+from clearml import Logger, Model, OutputModel, Task
+from sklearn.metrics import accuracy_score, roc_auc_score, ConfusionMatrixDisplay, RocCurveDisplay
 from sklearn.model_selection import train_test_split
-from clearml import Task, Logger, OutputModel # IMPORTAZIONE CLEARML PORTATA SU
+from xgboost import XGBClassifier
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--source_task_id', required=True)
@@ -9,7 +15,6 @@ args = parser.parse_args()
 
 PROJECT_NAME = 'Progetto_MLOps_Esame'
 
-# 1. INIZIALIZZAZIONE CLEARML E RECUPERO ARTIFACT (PRIMA DI XGBOOST)
 source_task = Task.get_task(task_id=args.source_task_id)
 if source_task is None:
     raise RuntimeError('Task sorgente non trovato su ClearML')
@@ -20,16 +25,11 @@ if 'taxi_data_cleaned' not in source_task.artifacts:
 df = source_task.artifacts['taxi_data_cleaned'].get()
 print(f"Dataset ottenuto dal task {source_task.id}")
 
+# Fase 1: inizializzazione del run ClearML.
 task = Task.init(
     project_name=PROJECT_NAME,
     task_name='Pipeline_Paolo_XGBoost'
 )
-
-# 2. IMPORT XGBOOST (DOPO L'INIZIALIZZAZIONE DEL TASK) E ALTRE LIBRERIE
-from xgboost import XGBClassifier
-import matplotlib.pyplot as plt
-import joblib
-from sklearn.metrics import accuracy_score, roc_auc_score, ConfusionMatrixDisplay, RocCurveDisplay
 
 params = {
     'n_estimators': 150,
@@ -42,10 +42,11 @@ params = {
 }
 task.connect(params)
 
-# 3. SPLIT DATI
+# Fase 2: split temporale del dataset.
 X = df.drop(columns=['target'])
 y = df['target']
 
+# Niente shuffle: il dataset è ordinato temporalmente e va trattato come sequenza.
 X_train_full, X_test, y_train_full, y_test = train_test_split(
     X, y, test_size=params['test_size'], shuffle=False
 )
@@ -54,27 +55,27 @@ X_train, X_val, y_train, y_val = train_test_split(
     X_train_full, y_train_full, test_size=params['val_size'], shuffle=False
 )
 
-# 4. ADDESTRAMENTO MODELLO AVANZATO
+# Fase 3: training XGBoost con early stopping.
 print(f"Addestramento XGBoost Classifier (Estimators: {params['n_estimators']})...")
 xgb_model = XGBClassifier(
     n_estimators=params['n_estimators'], 
     learning_rate=params['learning_rate'],
     max_depth=params['max_depth'], 
     random_state=params['random_state'],
-    eval_metric='auc', # Utilizziamo l'AUC come metrica da monitorare per l'early stopping
+    eval_metric='auc',
     early_stopping_rounds=params['early_stopping_rounds']
 )
 xgb_model.fit(
     X_train, 
     y_train,
-    eval_set=[(X_train, y_train), (X_val, y_val)], # TRACCIAMO SIA TRAIN CHE VAL PER LA CURVA
-    verbose=False # Evitiamo di inondare la console con troppi log
+    eval_set=[(X_train, y_train), (X_val, y_val)],
+    verbose=False
 )
 
 best_iteration = xgb_model.best_iteration
 print(f"L'addestramento si è fermato all'albero n. {best_iteration} (Early Stopping)")
 
-# 5. VALUTAZIONE E LOGGING METRICHE
+# Fase 4: metriche finali sul test set.
 y_pred = xgb_model.predict(X_test)
 y_proba = xgb_model.predict_proba(X_test)[:, 1]
 
@@ -85,16 +86,16 @@ print(f"\nRISULTATI PAOLO (XGBOOST):")
 print(f"Accuracy: {acc:.4f}")
 print(f"ROC-AUC:  {auc:.4f}")
 
-Logger.current_logger().report_scalar(title='Metrics', series='Accuracy', value=acc, iteration=0)
-Logger.current_logger().report_scalar(title='Metrics', series='ROC_AUC', value=auc, iteration=0)
+Logger.current_logger().report_scalar(title='Metrics', series='Accuracy', value=float(acc), iteration=0)
+Logger.current_logger().report_scalar(title='Metrics', series='ROC_AUC', value=float(auc), iteration=0)
 Logger.current_logger().report_scalar(title='Metrics', series='Best_Iteration', value=best_iteration, iteration=0)
 
-# 5.5 LOGGING MANUALE DELLA CURVA DI APPRENDIMENTO (LOSS) NEI SCALAR
+# La curva AUC per boosting round rende leggibile il comportamento dell'early stopping.
+# Fase 5: curva di apprendimento del boosting.
 print("Estrazione della Loss e invio a ClearML Scalar...")
 evals_result = xgb_model.evals_result()
 logger = Logger.current_logger()
 
-# Poiché abbiamo impostato eval_metric='auc', il dizionario conterrà i valori AUC
 for i in range(len(evals_result['validation_0']['auc'])):
     logger.report_scalar(
         title="Learning Curve (AUC per Boosting Round)", 
@@ -109,19 +110,17 @@ for i in range(len(evals_result['validation_0']['auc'])):
         iteration=i
     )
 
-# 6. PLOTS, EXPLAINABILITY & MODEL REGISTRY
+# Fase 6: grafici di performance ed explainability.
 print("\nGenerazione grafici di valutazione per XGBoost...")
 
-# --- Matrice di Confusione ---
 fig, ax = plt.subplots(figsize=(6, 6))
-ConfusionMatrixDisplay.from_estimator(xgb_model, X_test, y_test, ax=ax, cmap='Oranges') # Uso l'arancione per distinguerlo da Marco
+ConfusionMatrixDisplay.from_estimator(xgb_model, X_test, y_test, ax=ax, cmap='Oranges')
 plt.title('Matrice di Confusione - Paolo XGBoost')
 Logger.current_logger().report_matplotlib_figure(
     title="Performance", series="Matrice di Confusione", iteration=0, figure=fig
 )
 plt.close(fig)
 
-# --- Curva ROC ---
 fig2, ax2 = plt.subplots(figsize=(6, 6))
 RocCurveDisplay.from_estimator(xgb_model, X_test, y_test, ax=ax2)
 plt.title('Curva ROC - Paolo XGBoost')
@@ -130,7 +129,6 @@ Logger.current_logger().report_matplotlib_figure(
 )
 plt.close(fig2)
 
-# --- Feature Importance (XGBoost) ---
 print("Generazione Feature Importance...")
 importances = xgb_model.feature_importances_
 feature_names = X_train.columns
@@ -147,18 +145,55 @@ Logger.current_logger().report_matplotlib_figure(
 )
 plt.close(fig3)
 
-# --- Salvataggio Modello ---
-print("Salvataggio del modello nel Model Registry...")
+# Fase 7: registrazione e gate di promozione.
+print("Salvataggio del nuovo modello nel Model Registry...")
 joblib.dump(xgb_model, 'paolo_xgboost_model.pkl')
-output_model = OutputModel(task=task, framework="XGBoost")
-output_model.update_weights(
-    weights_filename='paolo_xgboost_model.pkl',
-    auto_delete_file=False
-)
-print("\nSincronizzazione con il server in corso (10 secondi per garantire l'HPO)...")
-task.flush(wait_for_uploads=True)
 
-import time
+output_model = OutputModel(task=task, framework="XGBoost")
+output_model.update_weights(weights_filename='paolo_xgboost_model.pkl', auto_delete_file=False)
+
+print("\n--- Fase di Model Evaluation (Gatekeeper) ---")
+# Confronto il nuovo modello solo contro quello già marcato production.
+prod_models = Model.query_models(project_name=PROJECT_NAME, tags=["production"])
+
+promote_to_production = True
+
+if prod_models:
+    current_prod_model = prod_models[0]
+    print(f"Modello in produzione trovato (ID: {current_prod_model.id}). Inizio il confronto...")
+    
+    try:
+        prod_model_path = current_prod_model.get_local_copy()
+        vecchio_modello = joblib.load(prod_model_path)
+        
+        y_proba_vecchio = vecchio_modello.predict_proba(X_test)[:, 1]
+        auc_vecchio = roc_auc_score(y_test, y_proba_vecchio)
+        
+        print(f"-> ROC-AUC Modello in Produzione (Vecchio): {auc_vecchio:.4f}")
+        print(f"-> ROC-AUC Modello XGBoost (Nuovo):         {auc:.4f}")
+        
+        if auc > auc_vecchio:
+            print("L'XGBoost è migliore! Rimuovo il tag dal vecchio e promuovo il nuovo.")
+            current_prod_model.remove_tags(["production"])
+            current_prod_model.add_tags(["archiviata"]) 
+        else:
+            print("L'XGBoost NON migliora le prestazioni. Nessuna promozione in produzione.")
+            promote_to_production = False
+            
+    except Exception as e:
+        print(f"Errore durante la valutazione del vecchio modello: {e}. Annullamento promozione per sicurezza.")
+        promote_to_production = False
+else:
+    print("Nessun modello attualmente in produzione. Promozione automatica consentita.")
+
+if promote_to_production:
+    output_model.add_tags(["production"])
+    print("Nuovo modello taggato con successo come 'production'.")
+
+# Fase 8: flush finale e chiusura task.
+print("\nSincronizzazione con il server in corso (10 secondi per garantire l'HPO)...")
+# Flush prima della chiusura per non perdere upload e metadati del task.
+task.flush(wait_for_uploads=True)
 time.sleep(10)
 task.close()
 

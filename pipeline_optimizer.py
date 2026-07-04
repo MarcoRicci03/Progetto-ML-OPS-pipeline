@@ -21,14 +21,13 @@ parser.add_argument(
 args = parser.parse_args()
 
 
-# 1. INIZIALIZZAZIONE TASK DI OTTIMIZZAZIONE
 task = Task.init(
     project_name=PROJECT_NAME,
     task_name=TASK_NAME,
     task_type=Task.TaskTypes.optimizer
 )
 
-# 2. VALIDAZIONE DEL TASK TEMPLATE
+# Fase 1: validazione del task base.
 paolo_task = Task.get_task(task_id=args.base_task_id)
 
 if paolo_task is None:
@@ -36,7 +35,8 @@ if paolo_task is None:
 
 print(f"Inizializzazione Ottimizzatore basato sul Task di Paolo: {paolo_task.id}")
 
-# 3. CONFIGURAZIONE DELL'OTTIMIZZATORE
+# Ottimizziamo solo gli iperparametri esposti nel task base.
+# Fase 2: configurazione HPO.
 optimizer = HyperParameterOptimizer(
     base_task_id=paolo_task.id,
 
@@ -57,14 +57,14 @@ optimizer = HyperParameterOptimizer(
     max_iteration_per_job=30
 )
 
-# 4. ESECUZIONE
+# Fase 3: esecuzione della ricerca.
 print("Avvio della ricerca automatica degli iperparametri (HPO)...")
 optimizer.set_report_period(1)
 optimizer.start_locally(job_complete_callback=None)
 
 optimizer.wait()
 
-# 5. RISULTATI
+# Fase 4: raccolta del miglior esperimento.
 print("\nOttimizzazione completata!")
 
 top_experiments = optimizer.get_top_experiments(top_k=1)
@@ -88,6 +88,6 @@ if top_experiments:
 else:
     print("Nessun esperimento completato correttamente.")
 
-# 6. CHIUSURA
+# Fase 5: chiusura dell'ottimizzatore.
 optimizer.stop()
 task.close()
