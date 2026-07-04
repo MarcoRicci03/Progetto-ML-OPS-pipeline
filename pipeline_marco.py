@@ -184,11 +184,8 @@ if not prod_models:
 
 output_model.tags = tags_correnti
 
-# --- SINCRONIZZAZIONE ---
-print("\nSincronizzazione con il server in corso (10 secondi per garantire l'indicizzazione)...")
-task.flush(wait_for_uploads=True)
-
-time.sleep(10)
-task.close()
+# Stampa formattata per permettere all'orchestratore (GitHub Actions) di estrarre l'ID
+print(f"\n--- EXPORT PER ORCHESTRATORE ---")
+print(f"BASELINE_MODEL_ID={output_model.id}")
 
 print("\nPipeline completata con successo!")
