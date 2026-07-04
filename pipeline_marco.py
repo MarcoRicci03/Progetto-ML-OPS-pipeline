@@ -114,8 +114,10 @@ Logger.current_logger().report_single_value(name='ROC_AUC_Test', value=auc)
 
 # 9.5 CALCOLO E LOGGING DELLA LEARNING CURVE PER SCALAR
 print("Calcolo della Learning Curve per i plot in ClearML (Sezione Scalar)...")
-train_sizes, train_scores, test_scores, _, _ = learning_curve(
-    rf_base, X_train, y_train, cv=3, scoring='roc_auc', train_sizes=np.linspace(0.1, 1.0, 5), n_jobs=-1, return_n_train_samples=True
+
+# Rimosso return_n_train_samples=True e le variabili extra in eccesso
+train_sizes, train_scores, test_scores, *_ = learning_curve(
+    rf_base, X_train, y_train, cv=3, scoring='roc_auc', train_sizes=np.linspace(0.1, 1.0, 5), n_jobs=-1
 )
 
 logger = Logger.current_logger()
