@@ -1,11 +1,7 @@
 import argparse
 import pandas as pd
 from sklearn.model_selection import train_test_split
-from xgboost import XGBClassifier
-from clearml import Task, Logger, OutputModel
-import matplotlib.pyplot as plt
-import joblib
-from sklearn.metrics import accuracy_score, roc_auc_score, ConfusionMatrixDisplay, RocCurveDisplay
+from clearml import Task, Logger, OutputModel # IMPORTAZIONE CLEARML PORTATA SU
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--source_task_id', required=True)
@@ -13,6 +9,7 @@ args = parser.parse_args()
 
 PROJECT_NAME = 'Progetto_MLOps_Esame'
 
+# 1. INIZIALIZZAZIONE CLEARML E RECUPERO ARTIFACT (PRIMA DI XGBOOST)
 source_task = Task.get_task(task_id=args.source_task_id)
 if source_task is None:
     raise RuntimeError('Task sorgente non trovato su ClearML')
@@ -27,6 +24,12 @@ task = Task.init(
     project_name=PROJECT_NAME,
     task_name='Pipeline_Paolo_XGBoost'
 )
+
+# 2. IMPORT XGBOOST (DOPO L'INIZIALIZZAZIONE DEL TASK) E ALTRE LIBRERIE
+from xgboost import XGBClassifier
+import matplotlib.pyplot as plt
+import joblib
+from sklearn.metrics import accuracy_score, roc_auc_score, ConfusionMatrixDisplay, RocCurveDisplay
 
 params = {
     'n_estimators': 150,
@@ -58,13 +61,13 @@ xgb_model = XGBClassifier(
     learning_rate=params['learning_rate'],
     max_depth=params['max_depth'], 
     random_state=params['random_state'],
-    eval_metric='auc',
+    eval_metric='auc', # Utilizziamo l'AUC come metrica da monitorare per l'early stopping
     early_stopping_rounds=params['early_stopping_rounds']
 )
 xgb_model.fit(
     X_train, 
     y_train,
-    eval_set=[(X_val, y_val)],
+    eval_set=[(X_train, y_train), (X_val, y_val)], # TRACCIAMO SIA TRAIN CHE VAL PER LA CURVA
     verbose=False # Evitiamo di inondare la console con troppi log
 )
 
@@ -85,6 +88,26 @@ print(f"ROC-AUC:  {auc:.4f}")
 Logger.current_logger().report_scalar(title='Metrics', series='Accuracy', value=acc, iteration=0)
 Logger.current_logger().report_scalar(title='Metrics', series='ROC_AUC', value=auc, iteration=0)
 Logger.current_logger().report_scalar(title='Metrics', series='Best_Iteration', value=best_iteration, iteration=0)
+
+# 5.5 LOGGING MANUALE DELLA CURVA DI APPRENDIMENTO (LOSS) NEI SCALAR
+print("Estrazione della Loss e invio a ClearML Scalar...")
+evals_result = xgb_model.evals_result()
+logger = Logger.current_logger()
+
+# Poiché abbiamo impostato eval_metric='auc', il dizionario conterrà i valori AUC
+for i in range(len(evals_result['validation_0']['auc'])):
+    logger.report_scalar(
+        title="Learning Curve (AUC per Boosting Round)", 
+        series="Train AUC", 
+        value=evals_result['validation_0']['auc'][i], 
+        iteration=i
+    )
+    logger.report_scalar(
+        title="Learning Curve (AUC per Boosting Round)", 
+        series="Validation AUC", 
+        value=evals_result['validation_1']['auc'][i], 
+        iteration=i
+    )
 
 # 6. PLOTS, EXPLAINABILITY & MODEL REGISTRY
 print("\nGenerazione grafici di valutazione per XGBoost...")

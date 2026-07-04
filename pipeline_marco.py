@@ -2,7 +2,8 @@ import pandas as pd
 import pyarrow
 import matplotlib.pyplot as plt
 import joblib
-from sklearn.model_selection import train_test_split
+import numpy as np # IMPORT AGGIUNTO PER LA LEARNING CURVE
+from sklearn.model_selection import train_test_split, learning_curve # IMPORT AGGIUNTO
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import accuracy_score, roc_auc_score, ConfusionMatrixDisplay, RocCurveDisplay
 from clearml import Task, Logger, OutputModel
@@ -110,6 +111,27 @@ print(f"ROC-AUC:  {auc:.4f}")
 # Logghiamo i risultati finali su ClearML
 Logger.current_logger().report_single_value(name='Accuracy_Test', value=acc)
 Logger.current_logger().report_single_value(name='ROC_AUC_Test', value=auc)
+
+# 9.5 CALCOLO E LOGGING DELLA LEARNING CURVE PER SCALAR
+print("Calcolo della Learning Curve per i plot in ClearML (Sezione Scalar)...")
+train_sizes, train_scores, test_scores, _, _ = learning_curve(
+    rf_base, X_train, y_train, cv=3, scoring='roc_auc', train_sizes=np.linspace(0.1, 1.0, 5), n_jobs=-1, return_n_train_samples=True
+)
+
+logger = Logger.current_logger()
+for i, size in enumerate(train_sizes):
+    logger.report_scalar(
+        title="Learning Curve (ROC-AUC vs Train Size)", 
+        series="Train AUC", 
+        value=np.mean(train_scores[i]), 
+        iteration=int(size)
+    )
+    logger.report_scalar(
+        title="Learning Curve (ROC-AUC vs Train Size)", 
+        series="Validation AUC", 
+        value=np.mean(test_scores[i]), 
+        iteration=int(size)
+    )
 
 # 10. PLOTS & MODEL REGISTRY
 print("\nGenerazione grafici di valutazione...")
