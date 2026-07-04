@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 import argparse
-from clearml import Task, Models
+from clearml import Task, Model
 from clearml.automation import (
     HyperParameterOptimizer,
     UniformIntegerParameterRange,
