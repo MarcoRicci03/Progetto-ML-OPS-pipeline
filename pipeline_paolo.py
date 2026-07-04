@@ -153,47 +153,43 @@ joblib.dump(xgb_model, 'paolo_xgboost_model.pkl')
 output_model = OutputModel(task=task, framework="XGBoost")
 output_model.update_weights(weights_filename='paolo_xgboost_model.pkl', auto_delete_file=False)
 
-print("\n--- Fase di Model Evaluation (Gatekeeper Deterministico) ---")
+print("\n--- Fase di Model Evaluation (Gatekeeper del DAG) ---")
 
 promote_to_production = True
 
 try:
-    # Recupero del modello di Marco tramite l'ID passato dall'orchestratore
-    from clearml import Model
-    current_prod_model = Model(model_id=args.baseline_model_id)
-    print(f"Modello baseline recuperato via ID ({current_prod_model.id}). Inizio il confronto...")
+    # L'eleganza del DAG: prendiamo il modello di Marco DIRETTAMENTE dal suo task sorgente
+    baseline_models = source_task.models['output']
     
-    # 1. Download modello baseline
-    prod_model_path = current_prod_model.get_local_copy()
-    vecchio_modello = joblib.load(prod_model_path)
-    
-    # 2. Testiamo il modello baseline sul NOSTRO X_test per un confronto alla pari
-    y_proba_vecchio = vecchio_modello.predict_proba(X_test)[:, 1]
-    auc_vecchio = roc_auc_score(y_test, y_proba_vecchio)
-    
-    print(f"-> ROC-AUC Modello Baseline (Marco): {auc_vecchio:.4f}")
-    print(f"-> ROC-AUC Modello XGBoost (Paolo):  {auc:.4f}")
-    
-    # 3. Valutazione effettiva
-    if auc > auc_vecchio:
-        print("L'XGBoost è migliore! Rimuovo eventuali tag di produzione dal vecchio e promuovo il nuovo.")
+    if baseline_models:
+        modello_marco_info = baseline_models[0]
+        print(f"Modello baseline recuperato nativamente dal DAG (ID: {modello_marco_info.id}). Inizio confronto...")
         
-        # Gestione dei tag sul vecchio modello
-        vecchi_tags = current_prod_model.tags
-        if "production" in vecchi_tags:
-            vecchi_tags.remove("production")
-        if "archiviata" not in vecchi_tags:
-            vecchi_tags.append("archiviata")
-        current_prod_model.tags = vecchi_tags
+        # 1. Scarichiamo fisicamente il modello di Marco
+        prod_model_path = modello_marco_info.get_local_copy()
+        vecchio_modello = joblib.load(prod_model_path)
+        
+        # 2. Lo testiamo sul nostro X_test
+        y_proba_vecchio = vecchio_modello.predict_proba(X_test)[:, 1]
+        auc_vecchio = roc_auc_score(y_test, y_proba_vecchio)
+        
+        print(f"-> ROC-AUC Baseline Random Forest (Marco): {auc_vecchio:.4f}")
+        print(f"-> ROC-AUC Avanzato XGBoost (Paolo):       {auc:.4f}")
+        
+        # 3. Lo scontro
+        if auc > auc_vecchio:
+            print("L'XGBoost è migliore! Supera il Gatekeeper.")
+        else:
+            print("L'XGBoost NON migliora le prestazioni. Nessuna promozione in produzione.")
+            promote_to_production = False
     else:
-        print("L'XGBoost NON migliora le prestazioni. Nessuna promozione in produzione.")
-        promote_to_production = False
-        
+        print("Nessun modello baseline trovato nel task di origine. Procedo...")
+
 except Exception as e:
-    print(f"Errore durante la valutazione del modello baseline: {e}. Annullamento promozione per sicurezza.")
+    print(f"Errore durante l'ispezione del DAG: {e}. Annullamento promozione per sicurezza.")
     promote_to_production = False
 
-# Assegnazione dei tag al nuovo modello
+# Assegnazione dei tag finali
 nuovi_tags = ["candidato"]
 if promote_to_production:
     nuovi_tags.append("production")
@@ -201,4 +197,6 @@ if promote_to_production:
 
 output_model.tags = nuovi_tags
 
+print("\nSincronizzazione completata.")
+task.close()
 print("\nPipeline di Paolo completata con successo!")

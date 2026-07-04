@@ -1,83 +1,42 @@
-from clearml import PipelineController
+from clearml.automation.controller import PipelineController
 
-PROJECT_NAME = 'Progetto_MLOps_Esame'
-MARCO_TASK_NAME = 'Pipeline_Marco_RF_Baseline'
-PAOLO_TASK_NAME = 'Pipeline_Paolo_XGBoost'
-OPTIMIZER_TASK_NAME = 'Pipeline_HPO_XGBoost_Tuning'
+# 1. Inizializzazione dell'Orchestratore del DAG
+pipe = PipelineController(
+    name='Orchestratore_DAG_Produzione',
+    project='Progetto_MLOps_Esame',
+    version='1.0.0',
+    add_pipeline_tags=False
+)
 
-def main():
-    print("=== Inizializzazione PipelineController ===")
-    
-    # 1. Creazione della Pipeline
-    pipe = PipelineController(
-        name='Taxi_NY_Orchestrator',
-        project=PROJECT_NAME,
-        version='1.0'
-    )
+# 2. Parametri Globali (Prevenzione Data Drift)
+# In futuro, basterà cambiare questo URL per far girare tutto sui nuovi dati mensili
+pipe.add_parameter(
+    name='dataset_url', 
+    default='https://d37ci6vzurychx.cloudfront.net/trip-data/yellow_tripdata_2024-01.parquet'
+)
 
-    # Imposta la coda di default (utile se usi agent remoti, altrimenti in locale viene ignorata)
-    pipe.set_default_execution_queue('default')
+# 3. Nodo A: Pipeline di Marco (Ingestion & Baseline)
+pipe.add_step(
+    name='step_marco_baseline',
+    base_task_project='Progetto_MLOps_Esame',
+    base_task_name='Pipeline_Marco_RF_Baseline',
+    parameter_override={'General/data_url': '${pipeline.dataset_url}'}
+)
 
-    # ==========================================
-    # 2. Definizione degli Step (Il DAG)
-    # ==========================================
-
-    # Step 1: Pipeline Marco (Baseline & Data Prep)
-    pipe.add_step(
-        name='step_marco',
-        base_task_project=PROJECT_NAME,
-        base_task_name=MARCO_TASK_NAME,
-        task_overrides={
-            'script.repository': 'https://github.com/MarcoRicci03/Progetto-ML-OPS-pipeline.git',
-            'script.branch': 'main',
-            'script.version_num': ''
-        }
-    )
-
-    # Step 2: Pipeline Paolo (XGBoost)
-    # 'parents' crea la dipendenza: questo step attende la fine di Marco
-    pipe.add_step(
-        name='step_paolo',
-        parents=['step_marco'],
-        base_task_project=PROJECT_NAME,
-        base_task_name=PAOLO_TASK_NAME,
-        parameter_override={
-            'Args/source_task_id': '${step_marco.id}'
-        },
-        task_overrides={
-            'script.repository': 'https://github.com/MarcoRicci03/Progetto-ML-OPS-pipeline.git',
-            'script.branch': 'main',
-            'script.version_num': ''
-        }
-    )
-
-    # Step 3: Pipeline Optimizer (HPO)
-    pipe.add_step(
-        name='step_optimizer',
-        parents=['step_paolo'],
-        base_task_project=PROJECT_NAME,
-        base_task_name=OPTIMIZER_TASK_NAME,
-        parameter_override={
-            # Passiamo l'ID generato dallo step_paolo al parametro dell'Optimizer
-            'Args/base_task_id': '${step_paolo.id}'
-        },
-        task_overrides={
-            'script.repository': 'https://github.com/MarcoRicci03/Progetto-ML-OPS-pipeline.git',
-            'script.branch': 'main',
-            'script.version_num': ''
-        }
-    )
-
-    # ==========================================
-    # 3. Esecuzione
-    # ==========================================
-    print("=== Avvio della Pipeline su ClearML ===")
-    
-    # run_pipeline_steps_locally=True esegue tutto sul tuo computer
-    # Se imposti a False, ClearML invierà i task alle code in attesa degli agent remoti!
-    pipe.start_locally(run_pipeline_steps_locally=False)
-    
-    print("\nWorkflow completato con successo! Controlla la dashboard UI di ClearML per visualizzare il grafo.")
+# 4. Nodo B: Pipeline di Paolo (Avanzato & Gatekeeper)
+pipe.add_step(
+    name='step_paolo_xgboost',
+    parents=['step_marco_baseline'], # Il DAG forza l'attesa: Paolo parte SOLO se Marco finisce
+    base_task_project='Progetto_MLOps_Esame',
+    base_task_name='Pipeline_Paolo_XGBoost',
+    parameter_override={
+        # Passaggio deterministico e nativo dell'ID tra i due nodi! Nessuna race condition.
+        'Args/source_task_id': '${step_marco_baseline.id}' 
+    }
+)
 
 if __name__ == '__main__':
-    main()
+    print("Avvio del PipelineController ClearML...")
+    # L'esecuzione locale è perfetta per le istanze di GitHub Actions.
+    # In azienda si userebbe pipe.start(queue='default') per delegare a cluster remoti con GPU.
+    pipe.start_locally(run_pipeline_steps_locally=True)

@@ -1,6 +1,9 @@
-name: ClearML CI/CD Pipeline
+name: ClearML Orchestrator Pipeline
 
 on:
+  push:
+    branches:
+      - main
   workflow_dispatch:
 
 jobs:
@@ -20,7 +23,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Esegui Pipeline Baseline (Marco) ed Estrai ID
+      - name: Lancia l'Orchestratore ClearML (DAG)
         env:
           CLEARML_WEB_HOST: "https://app.clear.ml"
           CLEARML_API_HOST: "https://api.clear.ml"
@@ -28,30 +31,5 @@ jobs:
           CLEARML_API_ACCESS_KEY: ${{ secrets.CLEARML_API_ACCESS_KEY }}
           CLEARML_API_SECRET_KEY: ${{ secrets.CLEARML_API_SECRET_KEY }}
         run: |
-          # Eseguiamo lo script salvando tutto l'output in un file temporaneo per ispezionarlo
-          python pipeline_marco.py 2>&1 | tee output_marco.log
-          
-          # Estrazione del Task ID (catturato dai log generati in automatico da ClearML)
-          SOURCE_TASK_ID=$(grep -oP 'task id=\K[a-f0-9]+' output_marco.log | head -1)
-          
-          # Estrazione del Model ID (catturato dal print esplicito che abbiamo aggiunto)
-          BASELINE_MODEL_ID=$(grep -oP 'BASELINE_MODEL_ID=\K[a-f0-9]+' output_marco.log | head -1)
-          
-          echo "--- RISULTATI ESTRAZIONE ---"
-          echo "Task ID estratto: $SOURCE_TASK_ID"
-          echo "Model ID estratto: $BASELINE_MODEL_ID"
-          
-          # Salviamo le variabili d'ambiente globali per renderle disponibili allo step di Paolo
-          echo "SOURCE_TASK_ID=$SOURCE_TASK_ID" >> $GITHUB_ENV
-          echo "BASELINE_MODEL_ID=$BASELINE_MODEL_ID" >> $GITHUB_ENV
-
-      - name: Esegui Pipeline Avanzata (Paolo) con Gatekeeper
-        env:
-          CLEARML_WEB_HOST: "https://app.clear.ml"
-          CLEARML_API_HOST: "https://api.clear.ml"
-          CLEARML_FILES_HOST: "https://files.clear.ml"
-          CLEARML_API_ACCESS_KEY: ${{ secrets.CLEARML_API_ACCESS_KEY }}
-          CLEARML_API_SECRET_KEY: ${{ secrets.CLEARML_API_SECRET_KEY }}
-        run: |
-          # Passiamo gli ID esatti per evitare la race condition
-          python pipeline_paolo.py --source_task_id "$SOURCE_TASK_ID" --baseline_model_id "$BASELINE_MODEL_ID"
+          # Github delega interamente la logica architetturale a ClearML
+          python run_pipeline.py
