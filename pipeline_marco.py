@@ -3,6 +3,7 @@ import joblib
 import numpy as np
 import pandas as pd
 import pyarrow
+import time
 
 from clearml import Model, OutputModel, Task, Logger
 from sklearn.model_selection import train_test_split, learning_curve
@@ -182,5 +183,12 @@ if not prod_models:
     tags_correnti.append("production")
 
 output_model.tags = tags_correnti
+
+# --- SINCRONIZZAZIONE ---
+print("\nSincronizzazione con il server in corso (10 secondi per garantire l'indicizzazione)...")
+task.flush(wait_for_uploads=True)
+
+time.sleep(10)
+task.close()
 
 print("\nPipeline completata con successo!")
